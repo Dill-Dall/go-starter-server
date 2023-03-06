@@ -8,7 +8,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/d-vignesh/go-starter-server/petapi"
+	"github.com/dill-dall/go-starter-server/petapi"
+	"github.com/dill-dall/go-starter-server/service"
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
 )
@@ -22,31 +23,44 @@ type PetServer struct {
 }
 
 func (t PetServer) ListPets(w http.ResponseWriter, r *http.Request, params petapi.ListPetsParams) {
-	pets := getPets()
+	pets, err := service.ListPets(uint8(*params.Limit))
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Error retrieving pets: %v", err)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(pets)
 }
 
-func getPets() []petapi.Pet {
-	hello := "jklds"
-	pets := []petapi.Pet{{Id: 1, Name: "Garfield", Tag: &hello}, {Id: 2, Name: "Odie", Tag: &hello}}
-	return pets
-}
-
-func (t PetServer) CreatePets(w http.ResponseWriter, r *http.Request) {
-	// our logic to store the pet into a persistent layer
-}
-
 func (t PetServer) ShowPetById(w http.ResponseWriter, r *http.Request, petId string) {
-	// our logic to get a pet by ID from the persistent layer
+	pet, err := service.ShowPetById(petId)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Error retrieving pet: %v", err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(pet)
 }
 
 func (t PetServer) SwaggerDoc(w http.ResponseWriter, r *http.Request) {
-	swagger, _ := petapi.GetSwagger()
+	swagger, err := petapi.GetSwagger()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Error retrieving Swagger doc: %v", err)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(swagger)
+}
+
+func (t PetServer) CreatePets(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNotImplemented)
 
 }
 
@@ -66,10 +80,10 @@ func main() {
 
 	printRoutes(h.(*chi.Mux))
 
-	confugureTlS(h)
+	configureTLS(h)
 }
 
-func confugureTlS(h http.Handler) {
+func configureTLS(h http.Handler) {
 	certFile := os.Getenv("CERT_FILE")
 	keyFile := os.Getenv("KEY_FILE")
 
